@@ -1,0 +1,1 @@
+Presentation files of the course Introduction to ML for NLP - part of the [multilingual technologies master](https://studieren.univie.ac.at/en/degree-programmes/master-programmes/multilingual-technologies-master/) degree of FH Campus Wien and University of Vienna.
