@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision Trees &amp; Random Forests — A Visual Introduction</title>
+<meta name="description" content="A scroll-driven, animated HTML5 tutorial on decision trees, Gini impurity, entropy, CART training, decision boundaries, bagging, random forests and AdaBoost. Runs fully offline in your browser.">
+<style>
+  :root{
+    --ink:#1d2733; --muted:#5b6b7c; --bg:#faf9f6; --card:#ffffff;
+    --blue:#2f6fed; --blue-soft:#dbe7fe; --orange:#f08a1d; --orange-soft:#fde8d2;
+    --green:#1f9d63; --red:#d64545; --line:#e5e1d8; --accent:#6d5bd0;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;font-size:17px;}
+  h1,h2,h3{line-height:1.2}
+  a{color:var(--blue)}
+
+  /* ---------- hero ---------- */
+  .hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    text-align:center;padding:3rem 1.5rem;background:
+    radial-gradient(1200px 500px at 20% -10%, #e8efff 0%, transparent 60%),
+    radial-gradient(1000px 500px at 85% 110%, #fdeeda 0%, transparent 55%), var(--bg);}
+  .hero .kicker{letter-spacing:.22em;text-transform:uppercase;font-size:.8rem;color:var(--accent);font-weight:700}
+  .hero h1{font-size:clamp(2.2rem,6vw,4.2rem);margin:.6rem 0 .8rem;max-width:16ch}
+  .hero p{max-width:56ch;color:var(--muted);font-size:1.15rem}
+  .hero .badges{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:1.4rem}
+  .hero .badge{background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:.3rem .9rem;font-size:.82rem;color:var(--muted)}
+  .scroll-hint{margin-top:3.5rem;color:var(--muted);font-size:.85rem;animation:bob 1.8s ease-in-out infinite}
+  .scroll-hint .arrow{display:block;font-size:1.4rem}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+
+  /* ---------- progress nav ---------- */
+  #dotnav{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:50;
+    display:flex;flex-direction:column;gap:12px}
+  #dotnav a{width:12px;height:12px;border-radius:50%;background:#cfc9bc;display:block;position:relative;transition:background .3s,transform .3s}
+  #dotnav a.on{background:var(--accent);transform:scale(1.35)}
+  #dotnav a span{position:absolute;right:20px;top:50%;transform:translateY(-50%);white-space:nowrap;
+    background:var(--ink);color:#fff;font-size:.72rem;padding:.15rem .55rem;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .2s}
+  #dotnav a:hover span{opacity:1}
+
+  /* ---------- scrolly layout ---------- */
+  .chapter{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:1.5rem;
+    padding:0 clamp(.5rem,3vw,3rem);align-items:start}
+  .sticky{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+    justify-content:center;align-items:center;gap:.6rem;padding:1rem 0}
+  .sticky svg{width:100%;max-width:720px;height:auto;max-height:78vh;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(30,40,60,.07)}
+  .sticky .caption{font-size:.82rem;color:var(--muted);text-align:center;min-height:1.2em}
+  .steps{display:flex;flex-direction:column;gap:60vh;padding:12vh 0}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:1.3rem 1.4rem;box-shadow:0 6px 18px rgba(30,40,60,.06);
+    opacity:.22;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease}
+  .step.active{opacity:1;transform:none}
+  .step h3{margin:.1rem 0 .5rem;font-size:1.25rem}
+  .step p{margin:.45rem 0;color:#33404f}
+  .step .tag{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);background:#efecfb;border-radius:6px;padding:.12rem .5rem;margin-bottom:.4rem}
+  .formula{display:block;background:#f4f2ec;border:1px solid var(--line);border-radius:10px;
+    padding:.7rem .9rem;margin:.7rem 0;font-family:var(--mono);font-size:.98rem;overflow-x:auto;white-space:nowrap}
+  .formula .hl{background:#fff3c4;border-radius:4px;padding:0 .15em}
+  pre.code{background:#232b36;color:#e8edf4;border-radius:10px;padding:.9rem 1rem;margin:.7rem 0;
+    font-family:var(--mono);font-size:.8rem;line-height:1.55;overflow-x:auto}
+  pre.code .ln{display:block;border-radius:5px;padding:0 .4rem;margin:0 -.4rem}
+  pre.code .ln.hot{background:#3d4a5e;box-shadow:inset 3px 0 0 var(--accent)}
+  pre.code .cm{color:#8fa1b8}
+  .kv{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+  .kv b{background:#f4f2ec;border:1px solid var(--line);border-radius:8px;padding:.15rem .55rem;font-family:var(--mono);font-size:.85rem}
+  .legend{display:flex;gap:1rem;justify-content:center;font-size:.85rem;color:var(--muted)}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:.35rem;vertical-align:-1px}
+
+  footer{border-top:1px solid var(--line);margin-top:8vh;padding:3rem 1.5rem 4rem;
+    text-align:center;color:var(--muted);font-size:.9rem}
+  footer p{max-width:70ch;margin:.4rem auto}
+
+  /* svg element transitions (geometry props are CSS-animatable in modern browsers) */
+  svg .anim{transition:opacity .5s ease,transform .6s cubic-bezier(.4,0,.2,1),x .6s ease,y .6s ease,
+    cx .6s ease,cy .6s ease,r .6s ease,width .6s ease,height .6s ease,x1 .6s ease,x2 .6s ease,y1 .6s ease,y2 .6s ease,fill .5s ease,stroke .5s ease}
+  @media (prefers-reduced-motion:reduce){svg .anim{transition:none}html{scroll-behavior:auto}.scroll-hint{animation:none}}
+
+  @media (max-width:920px){
+    .chapter{grid-template-columns:1fr}
+    .sticky{top:0;height:52vh;z-index:5}
+    .sticky svg{max-height:44vh}
+    .steps{padding:6vh 0;gap:40vh}
+    #dotnav{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="kicker">Introduction to Machine Learning for NLP</div>
+  <h1>Decision Trees &amp; Random Forests</h1>
+  <p>A scroll-driven visual tour of your first machine-learning model: how a tree of simple
+     yes/no questions learns to classify data, the math that picks each question
+     (Gini impurity &amp; entropy), and how many trees — a random forest — vote together.
+     Inspired by <a href="https://www.r2d3.us/visual-intro-to-machine-learning-part-1/">R2D3</a>.</p>
+  <div class="badges">
+    <span class="badge">Scroll-driven animations</span>
+    <span class="badge">All math computed live in your browser</span>
+    <span class="badge">No libraries, works offline</span>
+  </div>
+  <div class="scroll-hint">scroll to begin<span class="arrow">↓</span></div>
+</header>
+
+<nav id="dotnav" aria-label="Chapters"></nav>
+
+<main>
+
+  <!-- ================= Chapter 1 ================= -->
+  <section class="chapter" id="ch1">
+    <div class="sticky">
+      <svg id="viz1" viewBox="0 0 640 560" role="img" aria-label="Scatter plot of the toy dataset"></svg>
+      <div class="caption" id="cap1"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="points">
+        <span class="tag">1 · The data</span>
+        <h3>Sixty-four points on a plane</h3>
+        <p>Imagine a dataset of 64 examples. Each example is a point with <b>two features</b>,
+           drawn here as coordinates <b>x₁</b> (horizontal) and <b>x₂</b> (vertical), and a
+           <b>label</b> we want to predict.</p>
+      </div>
+      <div class="step" data-scene="labels">
+        <span class="tag">1 · The data</span>
+        <h3>Two classes: blue and orange</h3>
+        <p>Every point belongs to one of two classes. In your course project this could be
+           “male vs. female name”, “positive vs. negative review” — here it is just a color.
+           The features are the measurements; the label is the answer.</p>
+      </div>
+      <div class="step" data-scene="question">
+        <span class="tag">1 · The data</span>
+        <h3>Can a few yes/no questions separate them?</h3>
+        <p>Look at the picture: the blues and the oranges live in different corners.
+           A good learning algorithm should capture that structure — not with one complicated
+           formula, but with a handful of simple questions like “is x₁ ≤ 5?”.</p>
+      </div>
+      <div class="step" data-scene="clusters">
+        <span class="tag">1 · The data</span>
+        <h3>Clusters, not chaos</h3>
+        <p>There is a little noise in the middle, but the overall pattern is clear:
+           two clusters per class. Keep this shape in mind — everything that follows
+           (splits, boundaries, forests) is about carving this plane into regions
+           that are as pure as possible.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 2 ================= -->
+  <section class="chapter" id="ch2">
+    <div class="sticky">
+      <svg id="viz2" viewBox="0 0 640 560" role="img" aria-label="Inference walk on a decision tree"></svg>
+      <div class="caption" id="cap2"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="root">
+        <span class="tag">2 · Inference</span>
+        <h3>Prediction = walking down a tree</h3>
+        <p>A trained decision tree is a flowchart. To classify a new point, you start at the
+           <b>root</b> and answer each question on the way down. Watch the highlighted point
+           travel to its leaf.</p>
+      </div>
+      <div class="step" data-scene="q1">
+        <span class="tag">2 · Inference</span>
+        <h3>Question 1: “is x₁ ≤ 5?”</h3>
+        <p>The root asks its question. Our point has x₁ &lt; 5, so it follows the
+           <b>yes</b> branch to the left child. On the scatter, the left half is now shaded —
+           everything in that region took the same first step.</p>
+      </div>
+      <div class="step" data-scene="q2">
+        <span class="tag">2 · Inference</span>
+        <h3>Question 2: “is x₂ ≤ 5?”</h3>
+        <p>The next node asks about the other feature. Again the answer is yes, and the point
+           moves one level deeper. The shaded region shrinks to the bottom-left rectangle.</p>
+      </div>
+      <div class="step" data-scene="leaf">
+        <span class="tag">2 · Inference</span>
+        <h3>A leaf gives the answer</h3>
+        <p>The bottom-left region is pure blue, so the leaf predicts <b class="legend" style="color:var(--blue)">blue</b>.
+           That is inference: a path of questions, ending in a majority vote of the training
+           points that fell into the leaf. No gradients, no matrices — just counting.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 3 ================= -->
+  <section class="chapter" id="ch3">
+    <div class="sticky">
+      <svg id="viz3" viewBox="0 0 640 560" role="img" aria-label="Gini impurity animation"></svg>
+      <div class="caption" id="cap3"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="intro">
+        <span class="tag">3 · Gini impurity</span>
+        <h3>How mixed is this node?</h3>
+        <p>To choose the best question, the training algorithm needs a ruler for “mixedness”.
+           One classic ruler is <b>Gini impurity</b>. Look at the node: it contains 10 points,
+           8 blue and 2 orange.</p>
+      </div>
+      <div class="step" data-scene="calc1">
+        <span class="tag">3 · Gini impurity</span>
+        <h3>G = 1 − Σ pₖ²</h3>
+        <p>The class probabilities are p = (0.8, 0.2), so</p>
+        <span class="formula">G = 1 − (0.8² + 0.2²) = 1 − 0.68 = <span class="hl">0.32</span></span>
+        <p>A moderately mixed node: not pure, not maximally mixed.</p>
+      </div>
+      <div class="step" data-scene="max">
+        <span class="tag">3 · Gini impurity</span>
+        <h3>Perfectly balanced → maximum mess</h3>
+        <span class="formula">G = 1 − (0.5² + 0.5²) = <span class="hl">0.5</span></span>
+        <p>With two classes, 0.5 is the largest Gini possible. If the node is a coin flip,
+           no question has been answered yet.</p>
+      </div>
+      <div class="step" data-scene="pure">
+        <span class="tag">3 · Gini impurity</span>
+        <h3>Pure → zero, and we stop</h3>
+        <span class="formula">G = 1 − (1² + 0²) = <span class="hl">0</span></span>
+        <p>A pure node is a leaf: every point agrees, so the majority vote is unanimous.
+           Purity is one of the stop conditions of the training recursion.</p>
+      </div>
+      <div class="step" data-scene="curve">
+        <span class="tag">3 · Gini impurity</span>
+        <h3>The Gini curve</h3>
+        <p>Plot G(p) = 2p(1−p) for the blue fraction p: it is a parabola peaking at p = 0.5.
+           Intuition: <b>G is the probability that two points drawn at random from the node
+           have different labels</b> — that is exactly what a good split wants to reduce.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 4 ================= -->
+  <section class="chapter" id="ch4">
+    <div class="sticky">
+      <svg id="viz4" viewBox="0 0 640 560" role="img" aria-label="Entropy animation"></svg>
+      <div class="caption" id="cap4"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="intro">
+        <span class="tag">4 · Entropy</span>
+        <h3>Entropy measures the same mix — in bits</h3>
+        <p>Information theory has its own ruler: <b>entropy</b>,
+           <span class="formula">H = −Σ pₖ · log₂ pₖ</span>
+           It answers: “how many yes/no questions, on average, do I still need to identify the label?”</p>
+      </div>
+      <div class="step" data-scene="calc">
+        <span class="tag">4 · Entropy</span>
+        <h3>Same node, different units</h3>
+        <p>For the 8-blue / 2-orange node:</p>
+        <span class="formula">H = −(0.8·log₂0.8 + 0.2·log₂0.2) = <span class="hl">0.72 bits</span></span>
+        <p>Compare: 5/5 gives <b>1 bit</b> (maximum for two classes — one question still needed),
+           and a pure node gives <b>0 bits</b>: no questions left, the answer is certain.</p>
+      </div>
+      <div class="step" data-scene="curve">
+        <span class="tag">4 · Entropy</span>
+        <h3>The entropy curve</h3>
+        <p>H(p) = −p·log₂p − (1−p)·log₂(1−p) peaks at p = 0.5 with exactly 1 bit —
+           a fair coin needs one yes/no question. The log₂ is what makes the unit “bits”.</p>
+      </div>
+      <div class="step" data-scene="compare">
+        <span class="tag">4 · Entropy</span>
+        <h3>Gini vs. entropy in practice</h3>
+        <p>Both curves are concave and peak in the middle, so both criteria usually pick
+           <b>the same splits</b>. In practice: CART uses Gini (cheaper to compute — no logarithms),
+           ID3/C4.5 use entropy (information gain). When splitting a node, the algorithm keeps the
+           question with the largest <b>gain</b>:
+           <span class="formula">Gain = impurity(parent) − weighted impurity(children)</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 5 ================= -->
+  <section class="chapter" id="ch5">
+    <div class="sticky">
+      <svg id="viz5" viewBox="0 0 640 560" role="img" aria-label="Recursive training animation"></svg>
+      <div class="caption" id="cap5"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="code">
+        <span class="tag">5 · Training</span>
+        <h3>The algorithm is a recursion</h3>
+        <p>Training a tree means running the same procedure on every child — that is the recursion:</p>
+<pre class="code"><span class="ln" data-l="1">train(node, data, depth):</span>
+<span class="ln" data-l="2">  if data pure OR depth = max_depth OR too few samples:</span>
+<span class="ln" data-l="3">    make LEAF, predict majority class   ← stop</span>
+<span class="ln" data-l="4">  else:</span>
+<span class="ln" data-l="5">    find question with highest gain</span>
+<span class="ln" data-l="6">    split data into left / right</span>
+<span class="ln" data-l="7">    train(left child), train(right child) ← recurse</span></pre>
+      </div>
+      <div class="step" data-scene="scan">
+        <span class="tag">5 · Training</span>
+        <h3>At each node: scan all questions</h3>
+        <p>“Every question” means every feature and every threshold between sorted values.
+           Watch the candidate line sweep across x₁ — each position is scored by its gain…</p>
+      </div>
+      <div class="step" data-scene="split1">
+        <span class="tag">5 · Training</span>
+        <h3>…and the best one wins</h3>
+        <p>The vertical cut at x₁ ≈ 5 has the highest gain (Gini drops from 0.5 to a low weighted
+           average), so the root commits to it. Gain = G(parent) − [(n<sub>L</sub>/n)·G(L) + (n<sub>R</sub>/n)·G(R)].</p>
+      </div>
+      <div class="step" data-scene="recurse">
+        <span class="tag">5 · Training</span>
+        <h3>Then recurse: same procedure, smaller regions</h3>
+        <p>The left child now scans horizontal cuts inside the left half. The right child will scan
+           its own half. Each call of <code>train</code> is independent — only the data region differs.</p>
+      </div>
+      <div class="step" data-scene="stop">
+        <span class="tag">5 · Training</span>
+        <h3>Stop conditions end the recursion</h3>
+        <p>Every branch stops when it hits a leaf condition: <b>pure node</b> (Gini = 0),
+           <b>max depth</b> reached, or <b>too few samples</b> to split.
+           These three guards are what keep a tree from growing forever — remember them
+           when we talk about overfitting.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 6 ================= -->
+  <section class="chapter" id="ch6">
+    <div class="sticky">
+      <svg id="viz6" viewBox="0 0 640 560" role="img" aria-label="Decision boundary animation"></svg>
+      <div class="caption" id="cap6"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="d1">
+        <span class="tag">6 · Decision boundary</span>
+        <h3>Depth 1: one question, one straight cut</h3>
+        <p>After training a depth-1 tree, color every point of the plane by the prediction of the
+           leaf it falls into. One question produced one vertical line — the
+           <b>decision boundary</b>.</p>
+      </div>
+      <div class="step" data-scene="d2">
+        <span class="tag">6 · Decision boundary</span>
+        <h3>Depth 2: rectangular regions</h3>
+        <p>Each additional level cuts existing regions again. Two levels → up to four
+           axis-parallel rectangles, each labeled by its majority class.</p>
+      </div>
+      <div class="step" data-scene="d6">
+        <span class="tag">6 · Decision boundary</span>
+        <h3>Depth 6: a staircase hugging the clusters</h3>
+        <p>A deeper tree produces a staircase of rectangles that wraps around the clusters.
+           Notice the fundamental limitation: <b>trees can only draw lines parallel to the axes</b>,
+           because each question tests a single feature.</p>
+      </div>
+      <div class="step" data-scene="note">
+        <span class="tag">6 · Decision boundary</span>
+        <h3>The boundary is the model</h3>
+        <p>Everything a decision tree “knows” is encoded in this partition of the plane.
+           Later models (SVMs, neural nets) can draw slanted or curved boundaries —
+           trees cannot. That simplicity is exactly what makes them easy to understand,
+           and what random forests exploit.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 7 ================= -->
+  <section class="chapter" id="ch7">
+    <div class="sticky">
+      <svg id="viz7" viewBox="0 0 640 560" role="img" aria-label="Overfitting animation"></svg>
+      <div class="caption" id="cap7"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="clean">
+        <span class="tag">7 · Overfitting</span>
+        <h3>On clean data, a deep tree looks great</h3>
+        <p>This is the same dataset as before. A depth-6 tree separates the clusters and reaches
+           100% training accuracy. So far, so good.</p>
+      </div>
+      <div class="step" data-scene="noise">
+        <span class="tag">7 · Overfitting</span>
+        <h3>Now add four mislabeled outliers</h3>
+        <p>Real data is noisy. These four crosses have labels that contradict their neighborhood
+           (a blue point among oranges, an orange among blues).</p>
+      </div>
+      <div class="step" data-scene="islands">
+        <span class="tag">7 · Overfitting</span>
+        <h3>The deep tree memorizes the noise</h3>
+        <p>Watch the boundary contort: the depth-6 tree carves tiny islands around each outlier
+           to classify them correctly. Training accuracy is still 100% — but the tree has learned
+           accidents, not structure.</p>
+      </div>
+      <div class="step" data-scene="gap">
+        <span class="tag">7 · Overfitting</span>
+        <h3>The gap between train and fresh data</h3>
+        <p>We test both trees (depth 6 vs. depth 2) on 200 fresh points drawn from the same clusters.
+           The numbers below are computed live: the deep tree wins on the training set but loses on
+           fresh data — that gap is <b>overfitting</b>. The shallow tree generalizes better.
+           This is why we always evaluate on held-out data, and why we cap the depth.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 8 ================= -->
+  <section class="chapter" id="ch8">
+    <div class="sticky">
+      <svg id="viz8" viewBox="0 0 640 560" role="img" aria-label="Random forest bagging animation"></svg>
+      <div class="caption" id="cap8"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="idea">
+        <span class="tag">8 · Random forest</span>
+        <h3>One tree is brittle — many trees vote</h3>
+        <p>A single tree depends on the exact sample it was trained on: change a few points and the
+           boundary changes. <b>Bagging</b> (bootstrap aggregating) fixes this: draw many random
+           resamples of the training data and train one tree on each.</p>
+      </div>
+      <div class="step" data-scene="bootstrap">
+        <span class="tag">8 · Random forest</span>
+        <h3>Bootstrap: sample with replacement</h3>
+        <p>Each tree gets n points drawn <b>with replacement</b> from the original n — so some points
+           appear twice (darker dots below) and some are left out entirely (the “out-of-bag” points,
+           ~37%). Each resample is a slightly different world.</p>
+      </div>
+      <div class="step" data-scene="trees">
+        <span class="tag">8 · Random forest</span>
+        <h3>Each tree sees a different world</h3>
+        <p>On each resample we train a tree — and at every split we also consider only a random
+           subset of the features (that is the “random” in random forest). The small multiples below
+           show five such trees’ boundaries: similar, but not identical.</p>
+      </div>
+      <div class="step" data-scene="vote">
+        <span class="tag">8 · Random forest</span>
+        <h3>Majority vote smooths the boundary</h3>
+        <p>The forest predicts by majority vote of all trees (here 25). The big plot shows the
+           forest boundary on the full plane: smoother and more robust than any single tree.
+           The statistics behind the vote — many independent-ish classifiers averaging out —
+           is the whole idea: <b>the wisdom of crowds, with trees</b>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Chapter 9 ================= -->
+  <section class="chapter" id="ch9">
+    <div class="sticky">
+      <svg id="viz9" viewBox="0 0 640 560" role="img" aria-label="AdaBoost animation"></svg>
+      <div class="caption" id="cap9"></div>
+    </div>
+    <div class="steps">
+      <div class="step" data-scene="line">
+        <span class="tag">9 · Boosting &amp; AdaBoost</span>
+        <h3>A 1-D problem: one feature only</h3>
+        <p>Boosting builds trees <b>sequentially</b>, each one fixing the previous ones’ mistakes.
+           To see it clearly, use a single feature x: points with label −1 (bottom row) on the left,
+           +1 (top row) on the right — plus two crossing outliers.</p>
+      </div>
+      <div class="step" data-scene="stump1">
+        <span class="tag">9 · Boosting &amp; AdaBoost</span>
+        <h3>Round 1: the best “stump” (depth-1 tree)</h3>
+        <p>Every point starts with weight 1/n. AdaBoost finds the single threshold with the smallest
+           <b>weighted</b> error ε. Its vote strength is
+           <span class="formula">α = ½ · ln((1−ε)/ε)</span>
+           — a more accurate stump gets a bigger say.</p>
+      </div>
+      <div class="step" data-scene="reweight">
+        <span class="tag">9 · Boosting &amp; AdaBoost</span>
+        <h3>Misclassified points get heavier</h3>
+        <p>Each weight is multiplied by e<sup>−α·y·h(x)</sup>: wrong answers grow
+           (bigger circles), right answers shrink. After renormalizing, the two outliers now carry
+           most of the mass — the next stump will have to get them right.</p>
+      </div>
+      <div class="step" data-scene="rounds">
+        <span class="tag">9 · Boosting &amp; AdaBoost</span>
+        <h3>Rounds 2…T: focus on the hard cases</h3>
+        <p>Repeat: pick the stump minimizing weighted error, compute its α, reweight.
+           Each new vertical line targets where the current ensemble is still wrong.</p>
+      </div>
+      <div class="step" data-scene="final">
+        <span class="tag">9 · Boosting &amp; AdaBoost</span>
+        <h3>Final prediction: sign of the weighted vote</h3>
+        <p>The ensemble sums all votes:
+           <span class="formula">F(x) = Σ αₜ·hₜ(x),&nbsp;&nbsp;ŷ = sign(F(x))</span>
+           The staircase below is F(x); where it crosses zero is the ensemble’s decision boundary.
+           Many weak stumps, weighted by accuracy, form one strong classifier.</p>
+      </div>
+      <div class="step" data-scene="summary">
+        <span class="tag">9 · Recap</span>
+        <h3>Bagging vs. boosting</h3>
+        <p><b>Bagging</b> (random forest): trees in <b>parallel</b> on bootstrap samples — averages away
+           variance (unstable trees). <b>Boosting</b> (AdaBoost): trees in <b>series</b>, each reweighted
+           toward past errors — reduces bias (weak learners). Same ingredient — decision trees —
+           two very different recipes.</p>
+        <div class="kv">
+          <b>Gini = 1 − Σpₖ²</b><b>Entropy = −Σpₖlog₂pₖ</b><b>Gain = parent − weighted children</b>
+          <b>Stop: pure / depth / min-samples</b><b>Forest = majority vote</b><b>AdaBoost = Σαₜhₜ</b>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p><b>Decision Trees &amp; Random Forests — a visual introduction.</b>
+     Part of the <i>Introduction to ML for NLP</i> course materials.
+     Continue with the hands-on exercise:
+     <a href="https://github.com/liadmagen/NLP-Course/blob/master/exercises_notebooks/02_Gender_Identification_with_Decision_Tree.ipynb">02 · Gender Identification with a Decision Tree (notebook)</a>.</p>
+  <p>Inspired by <a href="https://www.r2d3.us/visual-intro-to-machine-learning-part-1/">R2D3 — A Visual Introduction to Machine Learning</a>.
+     All datasets, trees, forests and AdaBoost stumps on this page are generated and computed locally in your
+     browser by <a href="https://github.com/liadmagen/NLP-Course/blob/master/tutorials/decision-trees/ml-math.js"><code>ml-math.js</code></a>
+     (unit-tested with <code>ml-math.test.js</code>). Open this file directly — no server, no network, no libraries.</p>
+</footer>
+
+<script src="ml-math.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
