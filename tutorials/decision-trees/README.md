@@ -29,4 +29,6 @@ Open `index.html` directly in any modern browser — no server, no network, no l
   ```
 
 Inspired by [R2D3 — A Visual Introduction to Machine Learning](https://www.r2d3.us/visual-intro-to-machine-learning-part-1/).
-Pairs with the exercise notebook `exercises_notebooks/02_Gender_Identification_with_Decision_Tree.ipynb`.
+Pairs with the exercise notebook `exercises_notebooks/02_LM_extracting_information_from_news_with_regex.ipynb`.
+
+Formulas are rendered with [KaTeX](https://katex.org/) from a CDN when the page is viewed online; without network access they fall back to readable plain text.

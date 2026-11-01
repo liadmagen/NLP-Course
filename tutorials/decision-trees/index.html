@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Decision Trees &amp; Random Forests — A Visual Introduction</title>
-<meta name="description" content="A scroll-driven, animated HTML5 tutorial on decision trees, Gini impurity, entropy, CART training, decision boundaries, bagging, random forests and AdaBoost. Runs fully offline in your browser.">
+<meta name="description" content="A scroll-driven, animated HTML5 tutorial on decision trees, Gini impurity, entropy, CART training, decision boundaries, bagging, random forests and AdaBoost.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
 <style>
   :root{
     --ink:#1d2733; --muted:#5b6b7c; --bg:#faf9f6; --card:#ffffff;
@@ -48,8 +51,8 @@
   .chapter{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:1.5rem;
     padding:0 clamp(.5rem,3vw,3rem);align-items:start}
   .sticky{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
-    justify-content:center;align-items:center;gap:.6rem;padding:1rem 0}
-  .sticky svg{width:100%;max-width:720px;height:auto;max-height:78vh;background:var(--card);
+    justify-content:center;align-items:center;gap:.5rem;padding:.6rem 0}
+  .sticky svg{width:100%;max-width:720px;height:auto;max-height:calc(100vh - 92px);background:var(--card);
     border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(30,40,60,.07)}
   .sticky .caption{font-size:.82rem;color:var(--muted);text-align:center;min-height:1.2em}
   .steps{display:flex;flex-direction:column;gap:60vh;padding:12vh 0}
@@ -62,8 +65,12 @@
   .step .tag{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.08em;
     text-transform:uppercase;color:var(--accent);background:#efecfb;border-radius:6px;padding:.12rem .5rem;margin-bottom:.4rem}
   .formula{display:block;background:#f4f2ec;border:1px solid var(--line);border-radius:10px;
-    padding:.7rem .9rem;margin:.7rem 0;font-family:var(--mono);font-size:.98rem;overflow-x:auto;white-space:nowrap}
+    padding:.7rem .9rem;margin:.7rem 0;font-size:1.02rem;overflow-x:auto;white-space:nowrap}
   .formula .hl{background:#fff3c4;border-radius:4px;padding:0 .15em}
+  .math{font-size:15px;line-height:1.55;color:var(--ink)}
+  .math.bigmath{font-size:22px;font-weight:700;color:var(--accent)}
+  .math.nomath{font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;line-height:1.45}
+  foreignObject{overflow:visible}
   pre.code{background:#232b36;color:#e8edf4;border-radius:10px;padding:.9rem 1rem;margin:.7rem 0;
     font-family:var(--mono);font-size:.8rem;line-height:1.55;overflow-x:auto}
   pre.code .ln{display:block;border-radius:5px;padding:0 .4rem;margin:0 -.4rem}
@@ -85,8 +92,8 @@
 
   @media (max-width:920px){
     .chapter{grid-template-columns:1fr}
-    .sticky{top:0;height:52vh;z-index:5}
-    .sticky svg{max-height:44vh}
+    .sticky{top:0;height:52vh;z-index:5;padding:.3rem 0}
+    .sticky svg{max-height:calc(52vh - 56px)}
     .steps{padding:6vh 0;gap:40vh}
     #dotnav{display:none}
   }
@@ -104,7 +111,7 @@
   <div class="badges">
     <span class="badge">Scroll-driven animations</span>
     <span class="badge">All math computed live in your browser</span>
-    <span class="badge">No libraries, works offline</span>
+    <span class="badge">KaTeX formulas (plain-text fallback offline)</span>
   </div>
   <div class="scroll-hint">scroll to begin<span class="arrow">↓</span></div>
 </header>
@@ -205,22 +212,22 @@
       </div>
       <div class="step" data-scene="calc1">
         <span class="tag">3 · Gini impurity</span>
-        <h3>G = 1 − Σ pₖ²</h3>
+        <h3><span class="formula" data-fallback="G = 1 − Σ pₖ²" style="display:inline-block;margin:0">\(G = 1 - \sum_k p_k^2\)</span></h3>
         <p>The class probabilities are p = (0.8, 0.2), so</p>
-        <span class="formula">G = 1 − (0.8² + 0.2²) = 1 − 0.68 = <span class="hl">0.32</span></span>
+        <span class="formula" data-fallback="G = 1 − (0.8² + 0.2²) = 1 − 0.68 = 0.32">\(G = 1 - (0.8^2 + 0.2^2) = 1 - 0.68 = \mathbf{0.32}\)</span>
         <p>A moderately mixed node: not pure, not maximally mixed.</p>
       </div>
       <div class="step" data-scene="max">
         <span class="tag">3 · Gini impurity</span>
         <h3>Perfectly balanced → maximum mess</h3>
-        <span class="formula">G = 1 − (0.5² + 0.5²) = <span class="hl">0.5</span></span>
+        <span class="formula" data-fallback="G = 1 − (0.5² + 0.5²) = 0.5">\(G = 1 - (0.5^2 + 0.5^2) = \mathbf{0.5}\)</span>
         <p>With two classes, 0.5 is the largest Gini possible. If the node is a coin flip,
            no question has been answered yet.</p>
       </div>
       <div class="step" data-scene="pure">
         <span class="tag">3 · Gini impurity</span>
         <h3>Pure → zero, and we stop</h3>
-        <span class="formula">G = 1 − (1² + 0²) = <span class="hl">0</span></span>
+        <span class="formula" data-fallback="G = 1 − (1² + 0²) = 0">\(G = 1 - (1^2 + 0^2) = \mathbf{0}\)</span>
         <p>A pure node is a leaf: every point agrees, so the majority vote is unanimous.
            Purity is one of the stop conditions of the training recursion.</p>
       </div>
@@ -245,21 +252,21 @@
         <span class="tag">4 · Entropy</span>
         <h3>Entropy measures the same mix — in bits</h3>
         <p>Information theory has its own ruler: <b>entropy</b>,
-           <span class="formula">H = −Σ pₖ · log₂ pₖ</span>
+           <span class="formula" data-fallback="H = −Σ pₖ · log₂ pₖ">\(H = -\sum_k p_k \cdot \log_2 p_k\)</span>
            It answers: “how many yes/no questions, on average, do I still need to identify the label?”</p>
       </div>
       <div class="step" data-scene="calc">
         <span class="tag">4 · Entropy</span>
         <h3>Same node, different units</h3>
         <p>For the 8-blue / 2-orange node:</p>
-        <span class="formula">H = −(0.8·log₂0.8 + 0.2·log₂0.2) = <span class="hl">0.72 bits</span></span>
+        <span class="formula" data-fallback="H = −(0.8·log₂0.8 + 0.2·log₂0.2) = 0.72 bits">\(H = -(0.8\log_2 0.8 + 0.2\log_2 0.2) = \mathbf{0.72}\ \text{bits}\)</span>
         <p>Compare: 5/5 gives <b>1 bit</b> (maximum for two classes — one question still needed),
            and a pure node gives <b>0 bits</b>: no questions left, the answer is certain.</p>
       </div>
       <div class="step" data-scene="curve">
         <span class="tag">4 · Entropy</span>
         <h3>The entropy curve</h3>
-        <p>H(p) = −p·log₂p − (1−p)·log₂(1−p) peaks at p = 0.5 with exactly 1 bit —
+        <p><span class="formula" data-fallback="H(p) = −p·log₂p − (1−p)·log₂(1−p)" style="display:inline-block;margin:.2rem 0">\(H(p) = -p\log_2 p - (1-p)\log_2(1-p)\)</span> peaks at p = 0.5 with exactly 1 bit —
            a fair coin needs one yes/no question. The log₂ is what makes the unit “bits”.</p>
       </div>
       <div class="step" data-scene="compare">
@@ -269,7 +276,7 @@
            <b>the same splits</b>. In practice: CART uses Gini (cheaper to compute — no logarithms),
            ID3/C4.5 use entropy (information gain). When splitting a node, the algorithm keeps the
            question with the largest <b>gain</b>:
-           <span class="formula">Gain = impurity(parent) − weighted impurity(children)</span></p>
+           <span class="formula" data-fallback="Gain = impurity(parent) − [(n_L/n)·impurity(L) + (n_R/n)·impurity(R)]">\(\text{Gain} = I(\text{parent}) - \left[\tfrac{n_L}{n}I(L) + \tfrac{n_R}{n}I(R)\right]\)</span></p>
       </div>
     </div>
   </section>
@@ -303,7 +310,8 @@
         <span class="tag">5 · Training</span>
         <h3>…and the best one wins</h3>
         <p>The vertical cut at x₁ ≈ 5 has the highest gain (Gini drops from 0.5 to a low weighted
-           average), so the root commits to it. Gain = G(parent) − [(n<sub>L</sub>/n)·G(L) + (n<sub>R</sub>/n)·G(R)].</p>
+           average), so the root commits to it:</p>
+        <span class="formula" data-fallback="Gain = G(parent) − [(n_L/n)·G(L) + (n_R/n)·G(R)]">\(\text{Gain} = G(\text{parent}) - \left[\tfrac{n_L}{n}G(L) + \tfrac{n_R}{n}G(R)\right]\)</span>
       </div>
       <div class="step" data-scene="recurse">
         <span class="tag">5 · Training</span>
@@ -455,7 +463,7 @@
         <h3>Round 1: the best “stump” (depth-1 tree)</h3>
         <p>Every point starts with weight 1/n. AdaBoost finds the single threshold with the smallest
            <b>weighted</b> error ε. Its vote strength is
-           <span class="formula">α = ½ · ln((1−ε)/ε)</span>
+           <span class="formula" data-fallback="α = ½ · ln((1−ε)/ε)">\(\alpha = \tfrac{1}{2}\ln\!\left(\tfrac{1-\varepsilon}{\varepsilon}\right)\)</span>
            — a more accurate stump gets a bigger say.</p>
       </div>
       <div class="step" data-scene="reweight">
@@ -475,7 +483,7 @@
         <span class="tag">9 · Boosting &amp; AdaBoost</span>
         <h3>Final prediction: sign of the weighted vote</h3>
         <p>The ensemble sums all votes:
-           <span class="formula">F(x) = Σ αₜ·hₜ(x),&nbsp;&nbsp;ŷ = sign(F(x))</span>
+           <span class="formula" data-fallback="F(x) = Σ αₜ·hₜ(x),  ŷ = sign(F(x))">\(F(x) = \sum_t \alpha_t\, h_t(x), \qquad \hat{y} = \mathrm{sign}(F(x))\)</span>
            The staircase below is F(x); where it crosses zero is the ensemble’s decision boundary.
            Many weak stumps, weighted by accuracy, form one strong classifier.</p>
       </div>
@@ -500,11 +508,12 @@
   <p><b>Decision Trees &amp; Random Forests — a visual introduction.</b>
      Part of the <i>Introduction to ML for NLP</i> course materials.
      Continue with the hands-on exercise:
-     <a href="https://github.com/liadmagen/NLP-Course/blob/master/exercises_notebooks/02_Gender_Identification_with_Decision_Tree.ipynb">02 · Gender Identification with a Decision Tree (notebook)</a>.</p>
+     <a href="https://github.com/liadmagen/NLP-Course/blob/master/exercises_notebooks/02_LM_extracting_information_from_news_with_regex.ipynb">02 · Extracting Information from News with Regex (notebook)</a>.</p>
   <p>Inspired by <a href="https://www.r2d3.us/visual-intro-to-machine-learning-part-1/">R2D3 — A Visual Introduction to Machine Learning</a>.
      All datasets, trees, forests and AdaBoost stumps on this page are generated and computed locally in your
      browser by <a href="https://github.com/liadmagen/NLP-Course/blob/master/tutorials/decision-trees/ml-math.js"><code>ml-math.js</code></a>
-     (unit-tested with <code>ml-math.test.js</code>). Open this file directly — no server, no network, no libraries.</p>
+     (unit-tested with <code>ml-math.test.js</code>). Open this file directly — no server needed.
+     Formulas are rendered with KaTeX from a CDN when online; offline they fall back to plain text.</p>
 </footer>
 
 <script src="ml-math.js"></script>

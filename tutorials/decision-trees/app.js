@@ -21,6 +21,42 @@
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
+  /* KaTeX rendering with plain-text fallback (works offline without the CDN) */
+  function setMath(d, tex, fallback) {
+    if (window.katex) {
+      try { window.katex.render(tex, d, { displayMode: false, throwOnError: false }); return; } catch (e) { /* fall through */ }
+    }
+    d.textContent = fallback;
+    d.classList.add('nomath');
+  }
+  function mathBox(svg, x, y, w, h, cls) {
+    var fo = el('foreignObject', { x: x, y: y, width: w, height: h }, svg);
+    var d = document.createElement('div');
+    d.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+    d.className = 'math' + (cls ? ' ' + cls : '');
+    fo.appendChild(d);
+    return d;
+  }
+  function renderStaticMath() {
+    var nodes = document.querySelectorAll('.formula');
+    Array.prototype.forEach.call(nodes, function (n) {
+      var tex = n.textContent.trim();
+      if (window.katex && window.renderMathInElement) {
+        try {
+          window.renderMathInElement(n, {
+            delimiters: [{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }],
+            throwOnError: false
+          });
+          return;
+        } catch (e) { /* fall through to fallback */ }
+      }
+      n.textContent = n.getAttribute('data-fallback') || tex.replace(/\\\(|\\\)/g, '');
+      n.classList.add('nomath');
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderStaticMath);
+  else renderStaticMath();
+
   var C = {
     blue: '#2f6fed', orange: '#f08a1d', ink: '#1d2733', muted: '#5b6b7c',
     blueSoft: 'rgba(47,111,237,0.12)', orangeSoft: 'rgba(240,138,29,0.12)',
@@ -281,9 +317,9 @@
       el('rect', { x: 60, y: 90, width: 240, height: 300, rx: 16, fill: '#fdfcfa', stroke: C.line }, svg);
       txt(svg, 180, 70, 'one node', { 'font-size': 14, 'text-anchor': 'middle', fill: C.muted, 'font-weight': 700 });
       var dotsG = el('g', {}, svg);
-      var formula = txt(svg, 340, 160, '', { 'font-size': 16, 'font-family': 'ui-monospace,monospace', fill: C.ink });
-      var formula2 = txt(svg, 340, 192, '', { 'font-size': 16, 'font-family': 'ui-monospace,monospace', fill: C.ink });
-      var gval = txt(svg, 340, 242, '', { 'font-size': 24, 'font-weight': 800, fill: C.accent, 'font-family': 'ui-monospace,monospace' });
+      var formula = mathBox(svg, 336, 132, 296, 30);
+      var formula2 = mathBox(svg, 336, 164, 296, 30);
+      var gval = mathBox(svg, 336, 200, 296, 40, 'bigmath');
       el('rect', { x: 340, y: 280, width: 240, height: 18, rx: 9, fill: '#efede6', stroke: C.line }, svg);
       var bar = el('rect', { x: 340, y: 280, width: 0, height: 18, rx: 9, fill: C.accent, 'class': 'anim' }, svg);
       txt(svg, 340, 322, '0', { 'font-size': 11, fill: C.muted });
@@ -311,14 +347,42 @@
       var rr = 52 + (i % 3) * 14;
       el('circle', { cx: 180 + Math.cos(ang) * rr, cy: 240 + Math.sin(ang) * rr, r: 9, fill: i < counts[0] ? C.blue : C.orange, stroke: '#fff', 'stroke-width': 1.5 }, st.dotsG);
     }
-    var f1 = '', f2 = '', gv = '';
-    if (stage === 0 || stage === 4) { f1 = 'G = 1 - (p1^2 + p2^2)'; f2 = 'counts: ' + counts[0] + ' blue, ' + counts[1] + ' orange'; gv = 'G = ' + g.toFixed(2); }
-    if (stage === 1) { f1 = 'G = 1 - (0.8^2 + 0.2^2)'; f2 = 'G = 1 - 0.68'; gv = 'G = 0.32'; }
-    if (stage === 2) { f1 = 'G = 1 - (0.5^2 + 0.5^2)'; f2 = 'G = 1 - 0.50'; gv = 'G = 0.50  <- maximum'; }
-    if (stage === 3) { f1 = 'G = 1 - (1^2 + 0^2)'; f2 = 'G = 1 - 1'; gv = 'G = 0  <- pure: stop!'; }
-    st.formula.textContent = f1;
-    st.formula2.textContent = f2;
-    st.gval.textContent = gv;
+    var f1 = '', f2 = '', gv = '', f1t = '', f2t = '', gvt = '';
+    if (stage === 0 || stage === 4) {
+      f1 = 'G = 1 - (p_1^2 + p_2^2)';
+      f1t = 'G = 1 - (p1^2 + p2^2)';
+      f2 = '\\text{counts: } ' + counts[0] + ' \\text{ blue, } ' + counts[1] + ' \\text{ orange}';
+      f2t = 'counts: ' + counts[0] + ' blue, ' + counts[1] + ' orange';
+      gv = 'G = ' + g.toFixed(2);
+      gvt = gv;
+    }
+    if (stage === 1) {
+      f1 = 'G = 1 - (0.8^2 + 0.2^2)';
+      f1t = 'G = 1 - (0.8^2 + 0.2^2)';
+      f2 = 'G = 1 - 0.68';
+      f2t = f2;
+      gv = 'G = \\mathbf{0.32}';
+      gvt = 'G = 0.32';
+    }
+    if (stage === 2) {
+      f1 = 'G = 1 - (0.5^2 + 0.5^2)';
+      f1t = 'G = 1 - (0.5^2 + 0.5^2)';
+      f2 = 'G = 1 - 0.50';
+      f2t = f2;
+      gv = 'G = \\mathbf{0.50} \\ \\text{(maximum)}';
+      gvt = 'G = 0.50 (maximum)';
+    }
+    if (stage === 3) {
+      f1 = 'G = 1 - (1^2 + 0^2)';
+      f1t = 'G = 1 - (1^2 + 0^2)';
+      f2 = 'G = 1 - 1';
+      f2t = f2;
+      gv = 'G = \\mathbf{0} \\ \\text{(pure: stop!)}';
+      gvt = 'G = 0 (pure: stop!)';
+    }
+    setMath(st.formula, f1, f1t);
+    setMath(st.formula2, f2, f2t);
+    setMath(st.gval, gv, gvt);
     st.bar.setAttribute('width', (g / 0.5) * 240 * clamp(p * 1.4, 0, 1));
     st.cg.setAttribute('opacity', stage === 4 ? 1 : 0);
     if (stage === 4) {
@@ -354,10 +418,10 @@
         var rr = 52 + (i % 3) * 14;
         el('circle', { cx: 180 + Math.cos(ang) * rr, cy: 240 + Math.sin(ang) * rr, r: 9, fill: i < 8 ? C.blue : C.orange, stroke: '#fff', 'stroke-width': 1.5 }, svg);
       }
-      var f1 = txt(svg, 340, 150, '', { 'font-size': 16, 'font-family': 'ui-monospace,monospace', fill: C.ink });
-      var f2 = txt(svg, 340, 182, '', { 'font-size': 16, 'font-family': 'ui-monospace,monospace', fill: C.ink });
-      var f3 = txt(svg, 340, 214, '', { 'font-size': 16, 'font-family': 'ui-monospace,monospace', fill: C.ink });
-      var hv = txt(svg, 340, 262, '', { 'font-size': 24, 'font-weight': 800, fill: C.green, 'font-family': 'ui-monospace,monospace' });
+      var f1 = mathBox(svg, 336, 122, 296, 30);
+      var f2 = mathBox(svg, 336, 154, 296, 30);
+      var f3 = mathBox(svg, 336, 186, 296, 30);
+      var hv = mathBox(svg, 336, 222, 296, 40, 'bigmath');
       var cg = el('g', { opacity: 0, 'class': 'anim' }, svg);
       var cx0 = 340, cy0 = 480, cw = 250, ch = 120;
       el('rect', { x: cx0, y: cy0 - ch, width: cw, height: ch, fill: '#fdfcfa', stroke: C.line }, cg);
@@ -377,15 +441,29 @@
       svg._ent = { f1: f1, f2: f2, f3: f3, hv: hv, cg: cg, dot: dot, gline: gline, glab: glab, cx0: cx0, cy0: cy0, cw: cw, ch: ch };
     }
     var st = svg._ent;
-    if (stage === 0) { st.f1.textContent = 'H = -sum p_k * log2(p_k)'; st.f2.textContent = 'units: bits'; st.f3.textContent = ''; st.hv.textContent = ''; }
-    if (stage === 1) {
-      st.f1.textContent = 'H = -(0.8*log2 0.8 + 0.2*log2 0.2)';
-      st.f2.textContent = '  = -(-0.2575 - 0.4644)';
-      st.f3.textContent = '5/5 -> 1 bit   10/0 -> 0 bits';
-      st.hv.textContent = 'H = 0.72 bits';
+    if (stage === 0) {
+      setMath(st.f1, 'H = -\\sum_k p_k \\log_2 p_k', 'H = -sum_k p_k * log2(p_k)');
+      setMath(st.f2, '\\text{units: bits}', 'units: bits');
+      setMath(st.f3, '', ''); setMath(st.hv, '', '');
     }
-    if (stage === 2) { st.f1.textContent = 'H(p) = -p*log2 p - (1-p)*log2(1-p)'; st.f2.textContent = 'fair coin (p=0.5): exactly 1 bit'; st.f3.textContent = ''; st.hv.textContent = 'peak = 1 bit'; }
-    if (stage === 3) { st.f1.textContent = 'Gain = H(parent) - weighted H(children)'; st.f2.textContent = 'both curves peak at p=0.5, so both'; st.f3.textContent = 'usually pick the same splits'; st.hv.textContent = 'CART: Gini - ID3/C4.5: entropy'; }
+    if (stage === 1) {
+      setMath(st.f1, 'H = -(0.8\\log_2 0.8 + 0.2\\log_2 0.2)', 'H = -(0.8*log2 0.8 + 0.2*log2 0.2)');
+      setMath(st.f2, '= -(-0.2575 - 0.4644)', '= -(-0.2575 - 0.4644)');
+      setMath(st.f3, '\\text{5/5} \\to 1\\ \\text{bit} \\quad \\text{10/0} \\to 0\\ \\text{bits}', '5/5 -> 1 bit    10/0 -> 0 bits');
+      setMath(st.hv, 'H = \\mathbf{0.72}\\ \\text{bits}', 'H = 0.72 bits');
+    }
+    if (stage === 2) {
+      setMath(st.f1, 'H(p) = -p\\log_2 p - (1-p)\\log_2(1-p)', 'H(p) = -p*log2 p - (1-p)*log2(1-p)');
+      setMath(st.f2, '\\text{fair coin } (p=0.5): \\mathbf{1}\\ \\text{bit}', 'fair coin (p=0.5): 1 bit');
+      setMath(st.f3, '', '');
+      setMath(st.hv, '\\text{peak} = 1\\ \\text{bit}', 'peak = 1 bit');
+    }
+    if (stage === 3) {
+      setMath(st.f1, '\\text{Gain} = H(\\text{parent}) - \\tfrac{n_L}{n}H(L) - \\tfrac{n_R}{n}H(R)', 'Gain = H(parent) - weighted H(children)');
+      setMath(st.f2, '\\text{both curves peak at } p=0.5, \\text{ so both}', 'both curves peak at p=0.5, so both');
+      setMath(st.f3, '\\text{usually pick the same splits}', 'usually pick the same splits');
+      setMath(st.hv, '\\text{CART: Gini} \\ \\cdot\\ \\text{ID3/C4.5: entropy}', 'CART: Gini | ID3/C4.5: entropy');
+    }
     st.cg.setAttribute('opacity', stage >= 2 ? 1 : 0);
     st.gline.setAttribute('opacity', stage >= 3 ? 1 : 0);
     st.glab.setAttribute('opacity', stage >= 3 ? 1 : 0);
@@ -424,7 +502,9 @@
       var pts = drawPoints(svg, data1, { r: 5 });
       animatePointRadii(pts, 1);
       var sweep = el('line', { x1: sx(0), y1: sy(0), x2: sx(0), y2: sy(10), stroke: C.accent, 'stroke-width': 2, 'stroke-dasharray': '6 5', opacity: 0, 'class': 'anim' }, svg);
-      var gainLab = txt(svg, sx(0), sy(10) - 10, '', { 'font-size': 12, fill: C.accent, 'font-family': 'ui-monospace,monospace', opacity: 0, 'class': 'anim' });
+      var gainLab = mathBox(svg, sx(0) - 60, sy(10) - 26, 160, 22);
+      gainLab.parentNode.setAttribute('opacity', 0);
+      gainLab.parentNode.setAttribute('class', 'anim');
       var commit = el('line', { x1: sx(sweepSplit.threshold), y1: sy(0), x2: sx(sweepSplit.threshold), y2: sy(10), stroke: C.ink, 'stroke-width': 3.5, opacity: 0, 'class': 'anim' }, svg);
       var sub = el('g', { opacity: 0, 'class': 'anim' }, svg);
       [tree5.left, tree5.right].forEach(function (n) {
@@ -454,14 +534,16 @@
       st.sweep.setAttribute('x1', sx(t)); st.sweep.setAttribute('x2', sx(t));
       var idx = allIdx.filter(function (i) { return data1.X[i][0] <= t; });
       var c = idx.length ? ML.countsOf(data1.y, idx) : [0, 0];
-      st.gainLab.setAttribute('opacity', 1);
-      st.gainLab.setAttribute('x', clamp(sx(t) + 6, PX + 10, PX + PW - 90));
-      st.gainLab.textContent = 'G(left)=' + ML.gini(c).toFixed(2);
+      var g = ML.gini(c);
+      var fo = st.gainLab.parentNode;
+      fo.setAttribute('opacity', 1);
+      fo.setAttribute('x', clamp(sx(t) - 80, PX + 4, PX + PW - 166));
+      setMath(st.gainLab, 'G(\\text{left}) = ' + g.toFixed(2), 'G(left)=' + g.toFixed(2));
       st.commit.setAttribute('opacity', 0);
       cap.textContent = 'Scan every candidate threshold on x1 (and x2) - score each by its gain.';
     }
     if (stage === 2) {
-      st.sweep.setAttribute('opacity', 0); st.gainLab.setAttribute('opacity', 0);
+      st.sweep.setAttribute('opacity', 0); st.gainLab.parentNode.setAttribute('opacity', 0);
       st.commit.setAttribute('opacity', 1);
       st.chipL.setAttribute('opacity', 1); st.chipR.setAttribute('opacity', 1);
       st.chipL.textContent = 'left: ' + sweepSplit.leftCounts[0] + 'B/' + sweepSplit.leftCounts[1] + 'O  G=' + ML.gini(sweepSplit.leftCounts).toFixed(2);
@@ -730,8 +812,8 @@
       var ptG = el('g', {}, svg);
       var stumpG = el('g', {}, svg);
       var fG = el('g', { opacity: 0, 'class': 'anim' }, svg);
-      var info = txt(svg, x0, 40, '', { 'font-size': 14, 'font-family': 'ui-monospace,monospace', fill: C.ink });
-      var info2 = txt(svg, x0, 64, '', { 'font-size': 14, 'font-family': 'ui-monospace,monospace', fill: C.ink });
+      var info = mathBox(svg, x0 - 6, 14, x1 - x0 + 12, 26);
+      var info2 = mathBox(svg, x0 - 6, 42, x1 - x0 + 12, 26);
       var fx0 = x0, fx1 = x1, fy0 = 520, fy1 = 380;
       el('rect', { x: fx0, y: fy1, width: fx1 - fx0, height: fy0 - fy1, fill: '#fdfcfa', stroke: C.line, rx: 8 }, fG);
       el('line', { x1: fx0, y1: (fy0 + fy1) / 2, x2: fx1, y2: (fy0 + fy1) / 2, stroke: C.muted, 'stroke-width': 1, 'stroke-dasharray': '4 4' }, fG);
@@ -757,9 +839,16 @@
         el('rect', { x: Math.min(leftX, rightX), y: 100, width: Math.abs(rightX - leftX), height: 230, fill: C.orange, 'fill-opacity': 0.06 * (t === round ? 1 : 0.4) }, st.stumpG);
       }
       var h = ada.history[round];
-      st.info.textContent = 'round ' + (round + 1) + ': threshold x <= ' + h.stump.threshold.toFixed(2) + ',  eps = ' + h.err.toFixed(3) + ',  alpha = ' + h.alpha.toFixed(3);
-      st.info2.textContent = stage === 2 ? 'weights x e^(-alpha*y*h(x)): wrong points swell (bigger circles)' : 'alpha = 0.5*ln((1-eps)/eps) - accurate stumps speak louder';
-    } else { st.info.textContent = ''; st.info2.textContent = ''; }
+      setMath(st.info,
+        '\\text{round } ' + (round + 1) + ':\\ x \\le ' + h.stump.threshold.toFixed(2) + ',\\quad \\varepsilon = ' + h.err.toFixed(3) + ',\\quad \\alpha = ' + h.alpha.toFixed(3),
+        'round ' + (round + 1) + ': threshold x <= ' + h.stump.threshold.toFixed(2) + ',  eps = ' + h.err.toFixed(3) + ',  alpha = ' + h.alpha.toFixed(3));
+      setMath(st.info2, stage === 2
+        ? 'w_i \\leftarrow w_i\\, e^{-\\alpha\\, y_i\\, h(x_i)}: \\text{ wrong points swell (bigger circles)}'
+        : '\\alpha = \\tfrac12 \\ln\\frac{1-\\varepsilon}{\\varepsilon} \\text{ — accurate stumps speak louder}',
+        stage === 2
+        ? 'w_i <- w_i * e^(-alpha*y_i*h(x_i)): wrong points swell (bigger circles)'
+        : 'alpha = 0.5*ln((1-eps)/eps) - accurate stumps speak louder');
+    } else { setMath(st.info, '', ''); setMath(st.info2, '', ''); }
     if (stage === 4 || stage === 5) {
       st.fG.setAttribute('opacity', 1);
       var maxF = 1e-9, F = [];
@@ -776,8 +865,8 @@
         el('line', { x1: ax(zx), y1: 100, x2: ax(zx), y2: 330, stroke: '#d64545', 'stroke-width': 3, 'stroke-dasharray': '5 4' }, st.stumpG);
         el('circle', { cx: st.fx0 + ((zx - 0.5) / 9) * (st.fx1 - st.fx0), cy: midY, r: 5, fill: '#d64545' }, st.fG);
       }
-      st.info.textContent = ada.stumps.length + ' stumps, final: y_hat = sign( sum alpha_t * h_t(x) )';
-      st.info2.textContent = 'where F(x) crosses 0 (red) is the ensemble boundary';
+      setMath(st.info, ada.stumps.length + '\\ \\text{stumps, final: } \\hat{y} = \\mathrm{sign}\\left(\\sum_t \\alpha_t h_t(x)\\right)', ada.stumps.length + ' stumps, final: y_hat = sign( sum alpha_t * h_t(x) )');
+      setMath(st.info2, '\\text{where } F(x) \\text{ crosses 0 (red) is the ensemble boundary}', 'where F(x) crosses 0 (red) is the ensemble boundary');
     } else st.fG.setAttribute('opacity', 0);
     cap.textContent = [
       'One feature x; -1 (blue) left, +1 (orange) right - boosting in 1-D is easiest to see.',
